@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>생산팀 주간업무 통합 관리 시스템 (주차별 조회/저장 기능)</title>
+    <!-- Tailwind CSS & Lucide Icons -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
+        @media print {
+            .no-print { display: none !important; }
+            .print-area { width: 100% !important; margin: 0 !important; padding: 0 !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased min-h-screen flex flex-col">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 text-white shadow-md sticky top-0 z-50 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 p-2 rounded-lg text-white">
+                    <i data-lucide="factory" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">생산팀 주간업무 통합 관리 시스템</h1>
+                    <p class="text-xs text-slate-400">생산팀 · 생산1파트 · 생산2파트 · 기술파트</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="openPasteModal()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm px-4 py-2 rounded-lg flex items-center space-x-2 transition shadow">
+                    <i data-lucide="clipboard-paste" class="w-4 h-4"></i>
+                    <span>📋 엑셀 붙여넣기</span>
+                </button>
+                <button onclick="openModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm px-4 py-2 rounded-lg flex items-center space-x-2 transition shadow">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                    <span>개별 업무 등록</span>
+                </button>
+                <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-600 text-white font-medium text-sm px-3 py-2 rounded-lg flex items-center space-x-1 transition">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    <span class="hidden sm:inline">인쇄/PDF</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container Layout -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col md:flex-row gap-6 w-full">
+
+        <!-- Sidebar Navigation -->
+        <aside class="w-full md:w-64 bg-white rounded-xl shadow-sm border border-slate-200 p-4 shrink-0 no-print space-y-6">
+            
+            <!-- 주차 선택 (월~일 기준) -->
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center space-x-1">
+                    <i data-lucide="calendar" class="w-4 h-4 text-blue-600"></i>
+                    <span>조회 / 작성 주차 선택</span>
+                </label>
+                <select id="week-selector" onchange="changeWeek(this.value)" class="w-full text-xs font-semibold border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-blue-500">
+                    <!-- Dynamic Options -->
+                </select>
+                <div class="text-3xs text-slate-500 mt-1.5 text-center font-medium" id="week-range-text">월요일 ~ 일요일 기준</div>
+            </div>
+
+            <!-- 메뉴 / 조회 파트 -->
+            <div>
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-1">메뉴 / 조회 파트</div>
+                <nav class="space-y-1" id="nav-menu">
+                    <button onclick="switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-semibold transition bg-blue-50 text-blue-700">
+                        <div class="flex items-center space-x-2.5">
+                            <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+                            <span>대시보드 (주요업무)</span>
+                        </div>
+                        <span class="bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full font-bold" id="badge-important-count">0</span>
+                    </button>
+
+                    <div class="pt-3 pb-1 px-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">파트별 전체 보기</div>
+
+                    <button onclick="switchTab('생산팀')" id="nav-생산팀" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
+                        <div class="flex items-center space-x-2.5">
+                            <i data-lucide="building-2" class="w-4 h-4 text-slate-400"></i>
+                            <span>생산팀 (전체)</span>
+                        </div>
+                        <span class="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-full font-semibold" id="cnt-생산팀">0</span>
+                    </button>
+
+                    <button onclick="switchTab('생산1파트')" id="nav-생산1파트" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
+                        <div class="flex items-center space-x-2.5">
+                            <i data-lucide="cogs" class="w-4 h-4 text-slate-400"></i>
+                            <span>생산1파트</span>
+                        </div>
+                        <span class="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-full font-semibold" id="cnt-생산1파트">0</span>
+                    </button>
+
+                    <button onclick="switchTab('생산2파트')" id="nav-생산2파트" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
+                        <div class="flex items-center space-x-2.5">
+                            <i data-lucide="package-check" class="w-4 h-4 text-slate-400"></i>
+                            <span>생산2파트</span>
+                        </div>
+                        <span class="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-full font-semibold" id="cnt-생산2파트">0</span>
+                    </button>
+
+                    <button onclick="switchTab('기술파트')" id="nav-기술파트" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition">
+                        <div class="flex items-center space-x-2.5">
+                            <i data-lucide="wrench" class="w-4 h-4 text-slate-400"></i>
+                            <span>기술파트</span>
+                        </div>
+                        <span class="bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-full font-semibold" id="cnt-기술파트">0</span>
+                    </button>
+                </nav>
+            </div>
+
+            <!-- 데이터 저장 / 백업 -->
+            <div class="pt-4 border-t border-slate-200">
+                <div class="text-xs font-semibold text-slate-400 mb-2 px-1">기록 백업 / 서버 저장</div>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="exportData()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-2 rounded flex items-center justify-center space-x-1 font-medium">
+                        <i data-lucide="download" class="w-3 h-3"></i>
+                        <span>내보내기</span>
+                    </button>
+                    <label class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 px-2 rounded flex items-center justify-center space-x-1 font-medium cursor-pointer">
+                        <i data-lucide="upload" class="w-3 h-3"></i>
+                        <span>불러오기</span>
+                        <input type="file" onchange="importData(event)" accept=".json" class="hidden">
+                    </label>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 print-area">
+
+            <!-- DASHBOARD VIEW (Default: Importance >= 4) -->
+            <div id="view-dashboard" class="space-y-6">
+                <!-- Banner -->
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start space-x-3 text-amber-900 no-print">
+                    <i data-lucide="star" class="w-5 h-5 text-amber-500 fill-amber-500 shrink-0 mt-0.5"></i>
+                    <div class="text-sm">
+                        <span class="font-bold" id="dashboard-banner-title">2026년 10월 4주차 중요 업무 요약</span>
+                        <p class="text-xs text-amber-700 mt-0.5">현재 선택된 주차에서 등록된 업무 중 <strong class="underline">중요도 4점 이상(중요도 4, 5)</strong>인 핵심 업무가 파트별로 자동 정리되어 표시됩니다. 다른 주차 기록은 좌측 주차 선택 메뉴에서 언제든 불러올 수 있습니다.</p>
+                    </div>
+                </div>
+
+                <!-- 4 Parts Cards Grid for High Priority Tasks -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="dashboard-grid">
+                    <!-- Cards injected dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- PART DETAIL TABLE VIEW -->
+            <div id="view-part-detail" class="hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900" id="part-title">생산1파트 전체 업무 목록</h2>
+                        <p class="text-xs text-slate-500 mt-1" id="part-subtitle">선택한 주차의 모든 업무 내역(중요도 1~5점)입니다.</p>
+                    </div>
+                    <div class="flex items-center space-x-2 no-print">
+                        <select id="filter-status" onchange="renderCurrentTab()" class="text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500">
+                            <option value="ALL">전체 상태</option>
+                            <option value="진행중">진행중</option>
+                            <option value="완료">완료</option>
+                            <option value="대기">대기</option>
+                            <option value="지연">지연</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Data Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+                            <tr>
+                                <th class="py-3 px-4 w-16 text-center">중요도</th>
+                                <th class="py-3 px-4 w-20 text-center">구분</th>
+                                <th class="py-3 px-4">업무 내용</th>
+                                <th class="py-3 px-4 w-24 text-center">담당자</th>
+                                <th class="py-3 px-4 w-24 text-center">진행상태</th>
+                                <th class="py-3 px-4 w-32 text-center">일정</th>
+                                <th class="py-3 px-4 w-40">비고</th>
+                                <th class="py-3 px-4 w-20 text-center no-print">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-slate-200">
+                            <!-- Rows injected dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Modal 1: Excel Bulk Paste Modal -->
+    <div id="modal-paste" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden border border-slate-200">
+            <div class="bg-emerald-700 text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold text-lg flex items-center space-x-2">
+                    <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                    <span>엑셀 데이터 일괄 붙여넣기</span>
+                </h3>
+                <button onclick="closePasteModal()" class="text-emerald-200 hover:text-white transition">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 space-y-1">
+                    <p class="font-bold text-slate-800">📌 엑셀 붙여넣기 안내:</p>
+                    <p>1. 현재 선택한 주차(<strong class="text-blue-700" id="paste-modal-week-label">2026년 10월 4주차</strong>)로 데이터가 자동 저장됩니다.</p>
+                    <p>2. 엑셀에서 <strong class="text-blue-700">[구분 - 업무 내용 - 진행 상태 - 담당자 - 중요도 - 일정 - 비고]</strong> 7개 열 데이터 영역을 복사(Ctrl+C)하여 붙여넣으세요.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">등록할 파트 선택 <span class="text-rose-500">*</span></label>
+                    <select id="paste-part" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-emerald-500 font-semibold">
+                        <option value="생산팀">생산팀 (공통)</option>
+                        <option value="생산1파트" selected>생산1파트</option>
+                        <option value="생산2파트">생산2파트</option>
+                        <option value="기술파트">기술파트</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">엑셀 복사 데이터 붙여넣기 (Ctrl + V) <span class="text-rose-500">*</span></label>
+                    <textarea id="paste-input" rows="8" placeholder="구분	업무 내용	진행 상태	담당자	중요도	일정	비고/비고사항
+금주 실적	2026년 4분기 신규 사업 계획서 작성	완료	홍길동	5	10/19 ~ 10/20	임원보고 완료
+차주 계획	양어 판매 계획 점검 및 생산 일정 점검	진행중	홍길동	4	10/26 ~ 10/27	전 부서 공지 예정" class="w-full text-xs font-mono border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 leading-relaxed"></textarea>
+                </div>
+
+                <div class="pt-3 flex justify-end space-x-3 border-t border-slate-200">
+                    <button type="button" onclick="closePasteModal()" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition">취소</button>
+                    <button type="button" onclick="processExcelPaste()" class="px-5 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition shadow flex items-center space-x-1.5">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                        <span>데이터 일괄 등록</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Individual Task Form -->
+    <div id="modal-form" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200">
+            <div class="bg-slate-900 text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold text-lg flex items-center space-x-2">
+                    <i data-lucide="file-plus" class="w-5 h-5"></i>
+                    <span id="modal-title">새 주간업무 등록</span>
+                </h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white transition">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <form id="task-form" onsubmit="handleFormSubmit(event)" class="p-6 space-y-4">
+                <input type="hidden" id="task-id">
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">담당 파트 <span class="text-rose-500">*</span></label>
+                        <select id="input-part" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500">
+                            <option value="생산팀">생산팀 (공통)</option>
+                            <option value="생산1파트" selected>생산1파트</option>
+                            <option value="생산2파트">생산2파트</option>
+                            <option value="기술파트">기술파트</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">중요도 (1~5점) <span class="text-rose-500">*</span></label>
+                        <select id="input-importance" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 bg-amber-50 font-semibold">
+                            <option value="5">⭐⭐⭐⭐⭐ (5점 - 최우선)</option>
+                            <option value="4" selected>⭐⭐⭐⭐ (4점 - 중요)</option>
+                            <option value="3">⭐⭐⭐ (3점 - 보통)</option>
+                            <option value="2">⭐⭐ (2점 - 일반)</option>
+                            <option value="1">⭐ (1점 - 낮음)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">구분 <span class="text-rose-500">*</span></label>
+                        <select id="input-category" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500">
+                            <option value="금주실적">금주 실적</option>
+                            <option value="차주계획">차주 계획</option>
+                            <option value="이슈/요청">이슈 / 요청</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">진행 상태 <span class="text-rose-500">*</span></label>
+                        <select id="input-status" required class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500">
+                            <option value="진행중">진행중</option>
+                            <option value="완료">완료</option>
+                            <option value="대기">대기</option>
+                            <option value="지연">지연</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">업무 내용 <span class="text-rose-500">*</span></label>
+                    <textarea id="input-content" required rows="3" placeholder="진행할 주요 업무 내용을 상세히 입력하세요." class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">담당자 <span class="text-rose-500">*</span></label>
+                        <input type="text" id="input-assignee" required placeholder="홍길동" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">일정</label>
+                        <input type="text" id="input-schedule" placeholder="10/22 ~ 10/25" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">비고 / 참고사항</label>
+                    <input type="text" id="input-note" placeholder="특이사항 및 자원 요청 등" class="w-full text-sm border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-200">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition">취소</button>
+                    <button type="submit" class="px-5 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition shadow">저장하기</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        // Generate Week Options (Monday ~ Sunday) around current date (2026년 10월)
+        function generateWeekOptions() {
+            const selector = document.getElementById('week-selector');
+            selector.innerHTML = '';
+
+            // Current date context: October 2026
+            const baseWeeks = [
+                { id: '2026-W44', label: '2026년 10월 5주차', range: '10/26 (월) ~ 11/01 (일)' },
+                { id: '2026-W43', label: '2026년 10월 4주차 (현재주)', range: '10/19 (월) ~ 10/25 (일)', default: true },
+                { id: '2026-W42', label: '2026년 10월 3주차', range: '10/12 (월) ~ 10/18 (일)' },
+                { id: '2026-W41', label: '2026년 10월 2주차', range: '10/05 (월) ~ 10/11 (일)' },
+                { id: '2026-W40', label: '2026년 10월 1주차', range: '09/28 (월) ~ 10/04 (일)' },
+                { id: '2026-W39', label: '2026년 09월 4주차', range: '09/21 (월) ~ 09/27 (일)' },
+                { id: '2026-W38', label: '2026년 09월 3주차', range: '09/14 (월) ~ 09/20 (일)' },
+            ];
+
+            baseWeeks.forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w.id;
+                opt.textContent = w.label;
+                opt.dataset.range = w.range;
+                opt.dataset.title = w.label.replace(' (현재주)', '');
+                if (w.default) opt.selected = true;
+                selector.appendChild(opt);
+            });
+
+            updateWeekRangeText();
+        }
+
+        function updateWeekRangeText() {
+            const selector = document.getElementById('week-selector');
+            const selectedOpt = selector.options[selector.selectedIndex];
+            if (selectedOpt) {
+                document.getElementById('week-range-text').textContent = selectedOpt.dataset.range;
+                document.getElementById('paste-modal-week-label').textContent = selectedOpt.dataset.title;
+            }
+        }
+
+        // Initial Sample Data by Weeks
+        const initialTasks = [
+            // 2026년 10월 4주차
+            { id: '1', weekKey: '2026-W43', part: '생산1파트', importance: 5, category: '금주실적', content: '2026년 4분기 신규 사업 계획서 작성 및 1차 검토', assignee: '홍길동', status: '완료', schedule: '10/19 ~ 10/20', note: '임원보고 완료 및 승인 획득' },
+            { id: '2', weekKey: '2026-W43', part: '생산1파트', importance: 4, category: '금주실적', content: '주간 업무보고 HTML 생성 툴 요구사항 수집 및 UI 디자인', assignee: '김철수', status: '완료', schedule: '10/20 ~ 10/21', note: '디자인 시안 A/B안 확정' },
+            { id: '3', weekKey: '2026-W43', part: '생산1파트', importance: 3, category: '금주실적', content: '고객사 시스템 연동 테스트 및 오류 수정', assignee: '이영희', status: '진행중', schedule: '10/21 ~ 10/22', note: 'API 응답 지연 건 조치 중' },
+            { id: '4', weekKey: '2026-W43', part: '생산1파트', importance: 4, category: '차주계획', content: '양어 판매 계획 점검 및 생산 일정 점검', assignee: '홍길동', status: '진행중', schedule: '10/26 ~ 10/27', note: '전 부서 공지 예정' },
+            { id: '5', weekKey: '2026-W43', part: '생산2파트', importance: 5, category: '이슈/요청', content: '포장 라인 로봇 팔 센서 오작동 긴급 수리', assignee: '박민수', status: '지연', schedule: '10/22', note: '부품 교체 교환 수급 대기 중' },
+            { id: '6', weekKey: '2026-W43', part: '기술파트', importance: 5, category: '금주실적', content: '보일러 수처리 장치 신규 스케일 방지 필터 설치', assignee: '정우성', status: '완료', schedule: '10/20', note: '스팀 공급 안정성 증대' },
+            { id: '7', weekKey: '2026-W43', part: '생산팀', importance: 4, category: '차주계획', content: '2026년 4분기 부서 생산 목표 및 안전보건 교육 계획 수립', assignee: '홍길동 팀장', status: '진행중', schedule: '10/23', note: '전 파트장 참석 회의 예정' },
+
+            // 2026년 10월 3주차 (이전 주차 기록)
+            { id: '10', weekKey: '2026-W42', part: '생산1파트', importance: 5, category: '금주실적', content: '10월 3주차 수산사료 라인 세척 및 위생 점검', assignee: '김철수', status: '완료', schedule: '10/13 ~ 10/14', note: '점검 필' },
+            { id: '11', weekKey: '2026-W42', part: '기술파트', importance: 4, category: '금주실적', content: '메인 변전실 자가용 전기설비 정기 점검', assignee: '강동원', status: '완료', schedule: '10/15', note: '이상 무' }
+        ];
+
+        let tasks = [];
+        let currentTab = 'dashboard';
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            generateWeekOptions();
+            loadTasks();
+            renderCurrentTab();
+            lucide.createIcons();
+        });
+
+        function getCurrentWeekKey() {
+            return document.getElementById('week-selector').value;
+        }
+
+        function changeWeek(weekKey) {
+            updateWeekRangeText();
+            const selector = document.getElementById('week-selector');
+            const selectedTitle = selector.options[selector.selectedIndex].dataset.title;
+            
+            document.getElementById('dashboard-banner-title').textContent = `${selectedTitle} 중요 업무 요약`;
+            document.getElementById('part-subtitle').textContent = `${selectedTitle}의 모든 업무 내역(중요도 1~5점)입니다.`;
+            
+            renderCurrentTab();
+            updateBadges();
+        }
+
+        function loadTasks() {
+            const saved = localStorage.getItem('weekly_tasks_data_v3');
+            if (saved) {
+                try { tasks = JSON.parse(saved); } catch(e) { tasks = [...initialTasks]; }
+            } else {
+                tasks = [...initialTasks];
+                saveTasks();
+            }
+            updateBadges();
+        }
+
+        function saveTasks() {
+            localStorage.setItem('weekly_tasks_data_v3', JSON.stringify(tasks));
+            updateBadges();
+        }
+
+        function updateBadges() {
+            const weekKey = getCurrentWeekKey();
+            const weekTasks = tasks.filter(t => t.weekKey === weekKey);
+
+            const highImpCount = weekTasks.filter(t => parseInt(t.importance) >= 4).length;
+            document.getElementById('badge-important-count').textContent = highImpCount;
+
+            const parts = ['생산팀', '생산1파트', '생산2파트', '기술파트'];
+            parts.forEach(part => {
+                const count = weekTasks.filter(t => t.part === part).length;
+                const el = document.getElementById(`cnt-${part}`);
+                if (el) el.textContent = count;
+            });
+        }
+
+        function switchTab(tabName) {
+            currentTab = tabName;
+            const navButtons = document.querySelectorAll('#nav-menu button');
+            navButtons.forEach(btn => {
+                btn.classList.remove('bg-blue-50', 'text-blue-700', 'font-semibold');
+                btn.classList.add('text-slate-600');
+            });
+
+            const activeNav = document.getElementById(`nav-${tabName}`);
+            if (activeNav) {
+                activeNav.classList.add('bg-blue-50', 'text-blue-700', 'font-semibold');
+                activeNav.classList.remove('text-slate-600');
+            }
+
+            renderCurrentTab();
+        }
+
+        function renderCurrentTab() {
+            const dashboardView = document.getElementById('view-dashboard');
+            const partDetailView = document.getElementById('view-part-detail');
+
+            if (currentTab === 'dashboard') {
+                dashboardView.classList.remove('hidden');
+                partDetailView.classList.add('hidden');
+                renderDashboard();
+            } else {
+                dashboardView.classList.add('hidden');
+                partDetailView.classList.remove('hidden');
+                renderPartDetail(currentTab);
+            }
+            lucide.createIcons();
+        }
+
+        function renderDashboard() {
+            const grid = document.getElementById('dashboard-grid');
+            const parts = ['생산팀', '생산1파트', '생산2파트', '기술파트'];
+            const weekKey = getCurrentWeekKey();
+            
+            grid.innerHTML = parts.map(part => {
+                const highTasks = tasks.filter(t => t.weekKey === weekKey && t.part === part && parseInt(t.importance) >= 4);
+                
+                return `
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                        <div class="bg-slate-900 text-white px-4 py-3 flex justify-between items-center">
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="${getPartIcon(part)}" class="w-4 h-4 text-blue-400"></i>
+                                <h3 class="font-bold text-sm">${part} <span class="text-xs font-normal text-slate-300">(주요업무 ${highTasks.length}건)</span></h3>
+                            </div>
+                            <button onclick="switchTab('${part}')" class="text-xs text-blue-300 hover:text-white flex items-center space-x-1 transition no-print">
+                                <span>전체보기</span>
+                                <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                            </button>
+                        </div>
+                        <div class="p-4 flex-1 space-y-3">
+                            ${highTasks.length === 0 ? `
+                                <div class="text-center py-6 text-slate-400 text-xs">
+                                    해당 주차에 중요도 4점 이상의 핵심 업무가 없습니다.
+                                </div>
+                            ` : highTasks.map(task => `
+                                <div class="p-3 bg-slate-50 border-l-4 ${getImportanceBorder(task.importance)} rounded-r-lg shadow-2xs relative">
+                                    <div class="flex items-center justify-between text-xs mb-1">
+                                        <div class="flex items-center space-x-2">
+                                            <span class="font-bold text-amber-600">⭐ ${task.importance}점</span>
+                                            <span class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-medium">${task.category}</span>
+                                        </div>
+                                        ${getStatusBadge(task.status)}
+                                    </div>
+                                    <p class="font-semibold text-slate-800 text-sm my-1">${escapeHtml(task.content)}</p>
+                                    <div class="flex justify-between items-center text-xs text-slate-500 mt-2 pt-2 border-t border-slate-200/60">
+                                        <span>👤 ${escapeHtml(task.assignee)} | 🗓️ ${escapeHtml(task.schedule || '-')}</span>
+                                        ${task.note ? `<span class="text-slate-400 text-xs truncate max-w-[130px]" title="${escapeHtml(task.note)}">📝 ${escapeHtml(task.note)}</span>` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderPartDetail(partName) {
+            document.getElementById('part-title').textContent = `${partName} 업무 목록`;
+            const statusFilter = document.getElementById('filter-status').value;
+            const weekKey = getCurrentWeekKey();
+
+            let filtered = tasks.filter(t => t.weekKey === weekKey && t.part === partName);
+            if (statusFilter !== 'ALL') {
+                filtered = filtered.filter(t => t.status === statusFilter);
+            }
+
+            const tbody = document.getElementById('table-body');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center py-8 text-slate-400 text-sm">
+                            해당 주차에 등록된 업무 내역이 없습니다. [📋 엑셀 붙여넣기] 또는 [개별 업무 등록] 버튼을 눌러보세요.
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = filtered.map(task => `
+                <tr class="hover:bg-slate-50/80 transition">
+                    <td class="py-3 px-4 text-center font-bold text-amber-600">
+                        ⭐ ${task.importance}
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <span class="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium">${task.category}</span>
+                    </td>
+                    <td class="py-3 px-4 font-medium text-slate-900">${escapeHtml(task.content)}</td>
+                    <td class="py-3 px-4 text-center text-slate-700">${escapeHtml(task.assignee)}</td>
+                    <td class="py-3 px-4 text-center">${getStatusBadge(task.status)}</td>
+                    <td class="py-3 px-4 text-center text-slate-500 text-xs">${escapeHtml(task.schedule || '-')}</td>
+                    <td class="py-3 px-4 text-slate-500 text-xs">${escapeHtml(task.note || '-')}</td>
+                    <td class="py-3 px-4 text-center no-print">
+                        <div class="flex items-center justify-center space-x-2">
+                            <button onclick="editTask('${task.id}')" class="text-slate-400 hover:text-blue-600 transition" title="수정">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteTask('${task.id}')" class="text-slate-400 hover:text-rose-600 transition" title="삭제">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Parse Excel Pasted Data with Current WeekKey
+        function processExcelPaste() {
+            const selectedPart = document.getElementById('paste-part').value;
+            const pasteText = document.getElementById('paste-input').value.trim();
+            const weekKey = getCurrentWeekKey();
+
+            if (!pasteText) {
+                alert('엑셀 복사 데이터를 입력해 주세요.');
+                return;
+            }
+
+            const lines = pasteText.split('\n');
+            let addedCount = 0;
+
+            lines.forEach(line => {
+                const cols = line.split('\t').map(c => c.trim());
+                if (cols.length < 2) return;
+
+                if (cols[0].includes('구분') || cols[1].includes('업무 내용') || cols[1].includes('업무내용')) {
+                    return;
+                }
+
+                const category = cols[0] || '금주실적';
+                const content = cols[1] || '';
+                const status = cols[2] || '진행중';
+                const assignee = cols[3] || '미정';
+                
+                let importance = parseInt(cols[4]);
+                if (isNaN(importance) || importance < 1 || importance > 5) {
+                    importance = 3;
+                }
+
+                const schedule = cols[5] || '';
+                const note = cols[6] || '';
+
+                if (content) {
+                    tasks.unshift({
+                        id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                        weekKey: weekKey,
+                        part: selectedPart,
+                        importance: importance,
+                        category: category,
+                        content: content,
+                        assignee: assignee,
+                        status: status,
+                        schedule: schedule,
+                        note: note
+                    });
+                    addedCount++;
+                }
+            });
+
+            if (addedCount > 0) {
+                saveTasks();
+                closePasteModal();
+                document.getElementById('paste-input').value = '';
+                renderCurrentTab();
+                alert(`선택한 주차(${document.getElementById('paste-modal-week-label').textContent})의 ${selectedPart}에 총 ${addedCount}건의 업무가 등록되었습니다!`);
+            } else {
+                alert('올바른 데이터 행을 찾지 못했습니다. 엑셀 영역을 다시 확인해 주세요.');
+            }
+        }
+
+        // Helpers
+        function openPasteModal() {
+            if (currentTab !== 'dashboard') {
+                document.getElementById('paste-part').value = currentTab;
+            }
+            document.getElementById('modal-paste').classList.remove('hidden');
+        }
+
+        function closePasteModal() {
+            document.getElementById('modal-paste').classList.add('hidden');
+        }
+
+        function getPartIcon(part) {
+            switch(part) {
+                case '생산팀': return 'building-2';
+                case '생산1파트': return 'cogs';
+                case '생산2파트': return 'package-check';
+                case '기술파트': return 'wrench';
+                default: return 'folder';
+            }
+        }
+
+        function getImportanceBorder(score) {
+            if (parseInt(score) === 5) return 'border-rose-500';
+            if (parseInt(score) === 4) return 'border-amber-500';
+            return 'border-blue-400';
+        }
+
+        function getStatusBadge(status) {
+            switch(status) {
+                case '완료': return '<span class="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded-full font-bold">완료</span>';
+                case '진행중': return '<span class="bg-blue-100 text-blue-800 text-xs px-2 py-0.5 rounded-full font-bold">진행중</span>';
+                case '대기': return '<span class="bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded-full font-bold">대기</span>';
+                case '지연': return '<span class="bg-rose-100 text-rose-800 text-xs px-2 py-0.5 rounded-full font-bold">지연</span>';
+                default: return `<span class="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full">${status}</span>`;
+            }
+        }
+
+        function escapeHtml(str) {
+            if(!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        // Modal Controls
+        function openModal(taskId = null) {
+            const modal = document.getElementById('modal-form');
+            const form = document.getElementById('task-form');
+            form.reset();
+
+            if (taskId) {
+                const task = tasks.find(t => t.id === taskId);
+                if (task) {
+                    document.getElementById('task-id').value = task.id;
+                    document.getElementById('input-part').value = task.part;
+                    document.getElementById('input-importance').value = task.importance;
+                    document.getElementById('input-category').value = task.category;
+                    document.getElementById('input-status').value = task.status;
+                    document.getElementById('input-content').value = task.content;
+                    document.getElementById('input-assignee').value = task.assignee;
+                    document.getElementById('input-schedule').value = task.schedule || '';
+                    document.getElementById('input-note').value = task.note || '';
+                    document.getElementById('modal-title').textContent = '주간업무 수정';
+                }
+            } else {
+                document.getElementById('task-id').value = '';
+                if(currentTab !== 'dashboard') {
+                    document.getElementById('input-part').value = currentTab;
+                }
+                document.getElementById('modal-title').textContent = '새 주간업무 등록';
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-form').classList.add('hidden');
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const id = document.getElementById('task-id').value;
+            const weekKey = getCurrentWeekKey();
+
+            const taskData = {
+                id: id || Date.now().toString(),
+                weekKey: weekKey,
+                part: document.getElementById('input-part').value,
+                importance: parseInt(document.getElementById('input-importance').value),
+                category: document.getElementById('input-category').value,
+                status: document.getElementById('input-status').value,
+                content: document.getElementById('input-content').value.trim(),
+                assignee: document.getElementById('input-assignee').value.trim(),
+                schedule: document.getElementById('input-schedule').value.trim(),
+                note: document.getElementById('input-note').value.trim()
+            };
+
+            if (id) {
+                const idx = tasks.findIndex(t => t.id === id);
+                if (idx !== -1) tasks[idx] = taskData;
+            } else {
+                tasks.unshift(taskData);
+            }
+
+            saveTasks();
+            closeModal();
+            renderCurrentTab();
+        }
+
+        function editTask(id) { openModal(id); }
+
+        function deleteTask(id) {
+            if (confirm('정말 이 업무 내역을 삭제하시겠습니까?')) {
+                tasks = tasks.filter(t => t.id !== id);
+                saveTasks();
+                renderCurrentTab();
+            }
+        }
+
+        function exportData() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(tasks, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `생산팀_주간업무_통합백업_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        tasks = imported;
+                        saveTasks();
+                        renderCurrentTab();
+                        alert('전체 주차 기록 데이터를 성공적으로 불러왔습니다!');
+                    } else {
+                        alert('올바른 데이터 형식이 아닙니다.');
+                    }
+                } catch (err) {
+                    alert('파일을 읽는 도중 오류가 발생했습니다.');
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
