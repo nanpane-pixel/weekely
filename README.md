@@ -1,2 +1,0 @@
-# weekely
-weekely data
